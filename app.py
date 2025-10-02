@@ -156,16 +156,21 @@ def market_status(market: dict, user_tz: ZoneInfo) -> tuple[str, str, str]:
 
 
 st.subheader("Börsenzeiten & Status")
-# CSS kompakter machen
+
+# --- CSS für Responsive Grid ---
 st.markdown("""
 <style>
+.market-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+}
 .market-box {
     font-size: 12px;
-    padding: 4px 6px;
-    margin: 2px 0;
+    padding: 6px 8px;
     border: 1px solid #444;
     border-radius: 6px;
-    min-height: 90px;
+    background-color: #111;
 }
 .market-title {
     font-weight: 600;
@@ -186,23 +191,21 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-cols = st.columns(6)  # 👉 jetzt 6 Spalten
-for i, m in enumerate(MARKETS):
+# --- Responsive Grid Render ---
+boxes = []
+for m in MARKETS:
     status, hours_local, countdown = market_status(m, USER_TZ)
     color_class = "market-open" if status == "Offen" else "market-closed"
-    with cols[i % 6]:
-        st.markdown(
-            f"""
-            <div class="market-box">
-                <div class="market-title">{m['name']}</div>
-                <div class="{color_class}">{status}</div>
-                <div class="market-sub">{hours_local}</div>
-                <div class="market-sub">{countdown}</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    boxes.append(f"""
+        <div class="market-box">
+            <div class="market-title">{m['name']}</div>
+            <div class="{color_class}">{status}</div>
+            <div class="market-sub">{hours_local}</div>
+            <div class="market-sub">{countdown}</div>
+        </div>
+    """)
 
+st.markdown(f"<div class='market-grid'>{''.join(boxes)}</div>", unsafe_allow_html=True)
 # ================== GROUPS ==================
 GROUPS = {
     "🇺🇸 USA": {
