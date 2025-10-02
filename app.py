@@ -332,7 +332,7 @@ st.divider()
 
 # ================== GROUPS (einklappbar) ==================
 for group_name, tickers in GROUPS.items():
-    with st.expander(group_name, expanded=True):
+    with st.expander(group_name, expanded=False):
         cols = st.columns(3)
         for i, (name, meta) in enumerate(tickers.items()):
             val_str, delta_main, caption = compute_kpi(name, meta)
