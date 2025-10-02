@@ -30,6 +30,8 @@ GROUPS = {
     },
     "🇪🇺 Europa": {
         "DAX": {"ticker": "^GDAXI", "fmt": "idx"},
+        "EuroStoxx50": {"ticker": "^STOXX50E", "fmt": "idx"},
+        "FTSE100": {"ticker": "^FTSE", "fmt": "idx"},
         "EUR/USD": {"ticker": "EURUSD=X", "fmt": "fx"},
         "DE 10Y Yield": {"ticker": "FRED:DE10Y", "fmt": "pct_rate"},  # via FRED
     },
@@ -60,6 +62,8 @@ DESCRIPTIONS = {
     "DAX": "40 größte börsennotierte Unternehmen in Deutschland.",
     "EUR/USD": "Wechselkurs Euro gegen US-Dollar.",
     "DE 10Y Yield": "Rendite 10-jähriger deutscher Bundesanleihen.",
+    "EuroStoxx50": "50 größte Unternehmen aus der Eurozone", 
+    "FTSE100": "100 größte börsennotierte Unternehmen im Vereinigten Königreich.",
     # Rohstoffe
     "WTI Oil": "US-Rohöl (West Texas Intermediate) in USD pro Barrel.",
     "Gold": "Goldpreis in USD pro Feinunze.",
