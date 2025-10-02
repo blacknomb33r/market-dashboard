@@ -14,7 +14,7 @@ st.sidebar.header("Zeitraum")
 period_choice = st.sidebar.selectbox(
     "Zeitraum",
     ["Live", "30 Tage", "90 Tage", "1 Jahr"],
-    index=1
+    index=0
 )
 days_map = {"30 Tage": 30, "90 Tage": 90, "1 Jahr": 365}
 today = date.today()
@@ -54,9 +54,7 @@ GROUPS = {
 def fmt_value(x: Optional[float], kind: str) -> str:
     if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
         return "–"
-    if kind == "pct_tnx":        # ^TNX -> 10x
-        return f"{(x/10):.2f}%"
-    if kind == "pct_yield":      # normale Prozentzahl (DE10Y)
+    if kind in ["pct_tnx", "pct_yield"]:   # beide normal in %
         return f"{x:.2f}%"
     if kind == "fx":
         return f"{x:.4f}"
@@ -73,12 +71,11 @@ def fmt_delta_pct(cur: Optional[float], prev: Optional[float]) -> str:
         return "–"
     return f"{chg:+.2f}%"
 
-def fmt_delta_pp_tnx(cur: Optional[float], prev: Optional[float]) -> str:
-    # ^TNX skaliert um Faktor 10 -> erst in % umrechnen, dann pp
+def fmt_delta_pp_rate(cur: Optional[float], prev: Optional[float]) -> str:
     if cur is None or prev is None:
         return "–"
-    diff_pp = (cur/10) - (prev/10)
-    return f"{diff_pp:+.2f} pp"
+    diff = cur - prev
+    return f"{diff:+.2f} pp"
 
 def fmt_delta_pp_yield(cur: Optional[float], prev: Optional[float]) -> str:
     # normale Prozentwerte (z. B. DE10Y)
