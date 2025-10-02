@@ -7,7 +7,7 @@ from typing import Optional
 
 # ========== PAGE ==========
 st.set_page_config(page_title="Daily Market Dashboard", layout="wide")
-st.title("📊 Daily Market Dashboard (KPI only)")
+st.title("Daily Market Dashboard")
 
 # ========== SIDEBAR ==========
 st.sidebar.header("Zeitraum")
