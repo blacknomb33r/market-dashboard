@@ -20,6 +20,165 @@ days_map = {"30 Tage": 30, "90 Tage": 90, "1 Jahr": 365}
 today = date.today()
 start = today - timedelta(days=days_map.get(period_choice, 30))
 
+# ================== TimeZone ==================
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
+
+# (1) User-Zeitzone einstellbar (Default: Berlin)
+tz_options = [
+    "Europe/Berlin", "Europe/London", "America/New_York", "Europe/Zurich", "Europe/Paris"
+]
+user_tz_name = st.sidebar.selectbox("Deine Zeitzone", tz_options, index=0)
+USER_TZ = ZoneInfo(user_tz_name)
+
+# Optional: Auto-Refresh (alle 30 Sekunden)
+st.sidebar.toggle("Auto-Refresh (30s)", value=True, key="auto_refresh_toggle")
+if st.session_state.get("auto_refresh_toggle"):
+    st.experimental_rerun  # to silence linters
+    st_autorefresh = st.experimental_data_editor if False else None  # dummy to avoid NameError
+    try:
+        from streamlit.runtime.scriptrunner import add_script_run_ctx  # noqa
+        st.experimental_rerun  # no-op placeholder
+    except Exception:
+        pass
+    # offizieller Weg:
+    st_autorefresh = st.experimental_rerun  # alias, wird unten nicht genutzt
+    st.runtime.legacy_caching.caching  # noop
+
+# Kleine Hilfsfunktion für Auto-Refresh ohne extra Pakete:
+try:
+    from streamlit_autorefresh import st_autorefresh  # falls installiert, fein
+except Exception:
+    def st_autorefresh(interval=None, key=None, limit=None):
+        # Fallback: nutze Streamlits 'empty' + timeout per JS wäre schöner.
+        # Wir lassen es leer, wenn Paket nicht da ist.
+        return None
+
+if st.session_state.get("auto_refresh_toggle"):
+    st_autorefresh(interval=30000, key="markets_refresh")  # 30s
+
+# (2) Marktdefinitionen (ohne Feiertage; Mo–Fr)
+MARKETS = [
+    {
+        "name": "NYSE/Nasdaq",
+        "tz": "America/New_York",
+        "open": time(9, 30),
+        "close": time(16, 0),
+        "days": {0,1,2,3,4},   # Mo–Fr
+    },
+    {
+        "name": "Xetra (Frankfurt)",
+        "tz": "Europe/Berlin",
+        "open": time(9, 0),
+        "close": time(17, 30),
+        "days": {0,1,2,3,4},
+    },
+    {
+        "name": "LSE (London)",
+        "tz": "Europe/London",
+        "open": time(8, 0),
+        "close": time(16, 30),
+        "days": {0,1,2,3,4},
+    },
+    {
+        "name": "SIX (Zürich)",
+        "tz": "Europe/Zurich",
+        "open": time(9, 0),
+        "close": time(17, 30),
+        "days": {0,1,2,3,4},
+    },
+    {
+        "name": "Euronext Paris",
+        "tz": "Europe/Paris",
+        "open": time(9, 0),
+        "close": time(17, 30),
+        "days": {0,1,2,3,4},
+    },
+    {
+        "name": "Crypto (BTC/ETH)",
+        "tz": "UTC",
+        "open": time(0, 0),
+        "close": time(23, 59, 59),
+        "days": {0,1,2,3,4,5,6},   # 24/7
+        "always_open": True,
+    },
+]
+
+def localize(dt_naive: datetime, tz_name: str) -> datetime:
+    return dt_naive.replace(tzinfo=ZoneInfo(tz_name))
+
+def now_in_tz(tz_name: str) -> datetime:
+    return datetime.now(ZoneInfo(tz_name))
+
+def next_weekday(d: datetime, valid_days: set[int], tz: ZoneInfo) -> datetime:
+    # gehe zum nächsten Tag, der im Set liegt
+    for i in range(1, 8):
+        cand = d + timedelta(days=i)
+        if cand.weekday() in valid_days:
+            return cand
+    return d + timedelta(days=1)
+
+def market_status(market: dict, user_tz: ZoneInfo) -> tuple[str, str, str]:
+    """
+    Gibt (status, user_local_hours, countdown_text) zurück.
+    status: 'Offen' oder 'Geschlossen'
+    user_local_hours: z.B. "15:30–22:00 (deine Zeit)"
+    countdown_text: "schließt in 01:12:33" oder "öffnet in 05:03:10"
+    """
+    m_tz = ZoneInfo(market["tz"])
+    m_now = now_in_tz(market["tz"])
+    wd = m_now.weekday()
+
+    # Crypto 24/7
+    if market.get("always_open"):
+        # zeige einfach 24/7 und kein Countdown
+        opens_user = datetime.combine(m_now.date(), market["open"], tzinfo=m_tz).astimezone(user_tz).strftime("%H:%M")
+        closes_user = datetime.combine(m_now.date(), market["close"], tzinfo=m_tz).astimezone(user_tz).strftime("%H:%M")
+        return ("Offen", f"{opens_user}–{closes_user} (deine Zeit, 24/7)", "läuft 24/7")
+
+    is_trading_day = wd in market["days"]
+
+    open_dt = datetime.combine(m_now.date(), market["open"], tzinfo=m_tz)
+    close_dt = datetime.combine(m_now.date(), market["close"], tzinfo=m_tz)
+
+    open_user = open_dt.astimezone(user_tz).strftime("%H:%M")
+    close_user = close_dt.astimezone(user_tz).strftime("%H:%M")
+    user_hours = f"{open_user}–{close_user} (deine Zeit)"
+
+    if is_trading_day and open_dt <= m_now <= close_dt:
+        # Offen: Countdown bis Close
+        remaining = close_dt - m_now
+        hh, rem = divmod(int(remaining.total_seconds()), 3600)
+        mm, ss = divmod(rem, 60)
+        return ("Offen", user_hours, f"schließt in {hh:02d}:{mm:02d}:{ss:02d}")
+    else:
+        # Geschlossen: Countdown bis nächste Öffnung (heute oder nächster Handelstag)
+        if is_trading_day and m_now < open_dt:
+            next_open = open_dt
+        else:
+            nxt_day = next_weekday(m_now, market["days"], m_tz)
+            next_open = datetime.combine(nxt_day.date(), market["open"], tzinfo=m_tz)
+
+        remaining = next_open - m_now
+        # negative Abweichungen verhindern, falls Edgecases
+        if remaining.total_seconds() < 0:
+            remaining = timedelta(seconds=0)
+        hh, rem = divmod(int(remaining.total_seconds()), 3600)
+        mm, ss = divmod(rem, 60)
+        return ("Geschlossen", user_hours, f"öffnet in {hh:02d}:{mm:02d}:{ss:02d}")
+
+st.subheader("⌚ Börsenzeiten & Status")
+mcols = st.columns(3)
+for i, m in enumerate(MARKETS):
+    status, hours_local, countdown = market_status(m, USER_TZ)
+    with mcols[i % 3]:
+        st.metric(
+            label=m["name"],
+            value=status,
+            delta=countdown
+        )
+        st.caption(hours_local)
+
 # ================== GROUPS ==================
 GROUPS = {
     "🇺🇸 USA": {
