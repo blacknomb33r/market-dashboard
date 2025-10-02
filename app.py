@@ -299,7 +299,7 @@ def fmt_delta_pp_rate(cur: Optional[float], prev: Optional[float]) -> str:
     diff = cur - prev
     return f"{diff:+.2f} pp"
 
-@st.cache_data(ttl=90)
+@st.cache_data(ttl=900)
 def fetch_intraday_last(yfticker: str) -> Optional[float]:
     try:
         df = yf.Ticker(yfticker).history(period="1d", interval="1m")
