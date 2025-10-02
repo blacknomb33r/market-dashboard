@@ -27,30 +27,24 @@ days_map = {"30 Tage": 30, "90 Tage": 90, "1 Jahr": 365}
 today = date.today()
 start = today - timedelta(days=days_map.get(period_choice, 30))
 
-# ================== TimeZone ==================
-
-# (1) User-Zeitzone einstellbar (Default: Berlin)
-tz_options = [
-    "Europe/Berlin", "Europe/London", "America/New_York", "Europe/Zurich", "Europe/Paris"
-]
+# 1) User-Zeitzone (Default: Berlin)
+tz_options = ["Europe/Berlin", "Europe/London", "America/New_York", "Europe/Zurich", "Europe/Paris"]
 user_tz_name = st.sidebar.selectbox("Deine Zeitzone", tz_options, index=0)
 USER_TZ = ZoneInfo(user_tz_name)
 
-# Optional: Auto-Refresh (alle 30 Sekunden)
-st.sidebar.toggle("Auto-Refresh (30s)", value=True, key="auto_refresh_toggle")
-# Optional: Auto-Refresh per Checkbox
-auto_refresh = st.sidebar.checkbox("Auto-Refresh (30s)", value=False)
+# 2) Auto-Refresh (optional)
+auto_refresh = st.sidebar.checkbox("Auto-Refresh (alle 30s)", value=False)
 if auto_refresh:
     try:
         from streamlit_autorefresh import st_autorefresh
         st_autorefresh(interval=30 * 1000, key="markets_refresh")
     except ImportError:
-        st.warning("Für Auto-Refresh bitte 'streamlit-autorefresh' in requirements.txt installieren.")
+        st.warning("Für Auto-Refresh bitte 'streamlit-autorefresh' in requirements.txt aufnehmen.")
 
-if st.session_state.get("auto_refresh_toggle"):
-    st_autorefresh(interval=30000, key="markets_refresh")  # 30s
-
-# (2) Marktdefinitionen (ohne Feiertage; Mo–Fr)
+# 3) Manueller Refresh (immer verfügbar)
+if st.sidebar.button("↻ Jetzt aktualisieren"):
+    st.cache_data.clear()
+    st.rerun()
 MARKETS = [
     {
         "name": "NYSE/Nasdaq",
