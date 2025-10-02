@@ -3,35 +3,43 @@ import yfinance as yf
 from datetime import date, timedelta
 import pandas as pd
 import math
+import requests
 
 st.set_page_config(page_title="Daily Market Dashboard", layout="wide")
-st.title("📊 Daily Market Dashboard")
+st.title("📊 Daily Market Dashboard (KPI only)")
 
 # ---- Zeitraum (Sidebar) ----
 st.sidebar.header("Zeitraum")
 period_choice = st.sidebar.selectbox(
     "Zeitraum",
-    ["Live", "30d", "90d", "1Y"],
+    ["Live", "30 Tage", "90 Tage", "1 Jahr"],   # <-- ersetzt "Aktuell"
     index=1
 )
-days_map = {"30d": 30, "90d": 90, "1Y": 365}
+days_map = {"30 Tage": 30, "90 Tage": 90, "1 Jahr": 365}
 end = date.today()
 start = end - timedelta(days=days_map.get(period_choice, 30))
 
-# ---- Ticker-Definition ----
-# ^TNX liefert 10x den Prozentwert (z.B. 45.12 == 4.512%)
-TICKERS = {
-    "VIX": {"ticker": "^VIX", "fmt": "idx"},
-    "S&P 500": {"ticker": "^GSPC", "fmt": "idx"},
-    "Nasdaq": {"ticker": "^IXIC", "fmt": "idx"},
-    "DAX": {"ticker": "^GDAXI", "fmt": "idx"},
-    "US 10Y Yield": {"ticker": "^TNX", "fmt": "pct_tnx"},
-    "EUR/USD": {"ticker": "EURUSD=X", "fmt": "fx"},
-    "USD/JPY": {"ticker": "JPY=X", "fmt": "fx"},
-    "WTI Oil": {"ticker": "CL=F", "fmt": "px"},
-    "Gold": {"ticker": "GC=F", "fmt": "px"},
-    "Silver": {"ticker": "SI=F", "fmt": "px"},
-    "Platinum": {"ticker": "PL=F", "fmt": "px"},
+# ---- Gruppen-Definition ----
+GROUPS = {
+    "USA": {
+        "S&P 500": {"ticker": "^GSPC", "fmt": "idx"},
+        "Nasdaq": {"ticker": "^IXIC", "fmt": "idx"},
+        "US 10Y Yield": {"ticker": "^TNX", "fmt": "pct_tnx"},
+        "USD/JPY": {"ticker": "JPY=X", "fmt": "fx"},
+    },
+    "EU": {
+        "DAX": {"ticker": "^GDAXI", "fmt": "idx"},
+        "EUR/USD": {"ticker": "EURUSD=X", "fmt": "fx"},
+    },
+    "Rohstoffe": {
+        "WTI Oil": {"ticker": "CL=F", "fmt": "px"},
+        "Gold": {"ticker": "GC=F", "fmt": "px"},
+        "Silver": {"ticker": "SI=F", "fmt": "px"},
+        "Platinum": {"ticker": "PL=F", "fmt": "px"},
+    },
+    "Index": {
+        "VIX": {"ticker": "^VIX", "fmt": "idx"},
+    },
 }
 
 # -------- Helpers --------
@@ -51,13 +59,12 @@ def fmt_delta_pct(cur: float, prev: float) -> str:
     return f"{chg:+.2f}%"
 
 def fmt_delta_pp_tnx(cur: float, prev: float) -> str:
-    # ^TNX: Werte sind *10 skaliert* -> in %-Punkten rechnen
     if prev is None or cur is None:
         return "–"
     diff_pp = (cur/10) - (prev/10)
     return f"{diff_pp:+.2f} pp"
 
-@st.cache_data(ttl=90)  # kurz cachen, da "Aktuell"
+@st.cache_data(ttl=90)
 def fetch_intraday_last(yfticker: str) -> float | None:
     try:
         df = yf.Ticker(yfticker).history(period="1d", interval="1m")
@@ -67,18 +74,16 @@ def fetch_intraday_last(yfticker: str) -> float | None:
     except Exception:
         return None
 
-@st.cache_data(ttl=1800)  # 30 min
+@st.cache_data(ttl=1800)
 def fetch_prev_daily_close(yfticker: str) -> float | None:
-    """Letzter *abgeschlossener* Tages-Schlusskurs (vorherige Handelssitzung)."""
     try:
-        df = yf.Ticker(yfticker).history(period="5d", interval="1d")  # genug Puffer
+        df = yf.Ticker(yfticker).history(period="5d", interval="1d")
         if df is None or df.empty or "Close" not in df.columns:
             return None
         closes = df["Close"].dropna()
         if len(closes) < 2:
             return None
-        # letzter Eintrag ist der jüngste Tagesclose; der davor = Vortagsschluss
-        return float(closes.iloc[-1])  # Jüngster abgeschlossener Close
+        return float(closes.iloc[-1])
     except Exception:
         return None
 
@@ -106,56 +111,73 @@ def get_prev(series: pd.Series, sessions_back: int) -> float | None:
     except Exception:
         return None
 
-# -------- KPI UI --------
-st.subheader(f"Kern-KPIs ({period_choice})")
-cols = st.columns(3)
+# ---- Fear & Greed Index ----
+def fetch_fear_greed():
+    try:
+        url = "https://production.dataviz.cnn.io/index/fearandgreed/"
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            val = data.get("fear_and_greed", {}).get("now", {}).get("value")
+            rating = data.get("fear_and_greed", {}).get("now", {}).get("value_text")
+            return val, rating
+    except Exception:
+        return None, None
+    return None, None
 
-for i, (name, meta) in enumerate(TICKERS.items()):
-    yft = meta["ticker"]; kind = meta["fmt"]
+# -------- KPI Anzeige --------
+for group_name, tickers in GROUPS.items():
+    st.subheader(group_name)
+    cols = st.columns(3)
 
-    with cols[i % 3]:
-        if period_choice == "Live":
-            # Aktueller Intraday-Wert + Δ vs. Vortagsschluss
-            cur = fetch_intraday_last(yft)
-            prev_close = fetch_prev_daily_close(yft)
+    for i, (name, meta) in enumerate(tickers.items()):
+        yft = meta["ticker"]; kind = meta["fmt"]
 
-            value_str = fmt_value(cur, kind)
+        with cols[i % 3]:
+            if period_choice == "Live":
+                cur = fetch_intraday_last(yft)
+                prev_close = fetch_prev_daily_close(yft)
+                value_str = fmt_value(cur, kind)
 
-            if kind == "pct_tnx":
-                delta_str = fmt_delta_pp_tnx(cur, prev_close) if (cur is not None and prev_close is not None) else "–"
-                st.metric(label=name, value=value_str, delta=f"{delta_str} (vs. Vortag)")
-            else:
-                delta_str = fmt_delta_pct(cur, prev_close) if (cur is not None and prev_close is not None) else "–"
-                st.metric(label=name, value=value_str, delta=f"{delta_str} (vs. Vortag)")
-        else:
-            # Historisch: 1d + 5d
-            s = fetch_daily_series(yft, start, end)
-            if s is None or s.empty:
-                st.metric(label=name, value="–", delta="–")
-                continue
-
-            latest = float(s.iloc[-1])
-            prev1d = get_prev(s, 1)
-            prev5d = get_prev(s, 5)
-
-            value_str = fmt_value(latest, kind)
-
-            # 1d Delta
-            if kind == "pct_tnx":
-                delta1d = fmt_delta_pp_tnx(latest, prev1d) if prev1d is not None else "–"
-            else:
-                delta1d = fmt_delta_pct(latest, prev1d) if prev1d is not None else "–"
-
-            st.metric(label=name, value=value_str, delta=f"{delta1d} (1d)")
-
-            # 5d optional
-            if prev5d is not None:
                 if kind == "pct_tnx":
-                    d5 = fmt_delta_pp_tnx(latest, prev5d)
+                    delta_str = fmt_delta_pp_tnx(cur, prev_close)
                 else:
-                    d5 = fmt_delta_pct(latest, prev5d)
-                st.caption(f"Δ vs. 5d: {d5}")
-            else:
-                st.caption("Δ vs. 5d: –")
+                    delta_str = fmt_delta_pct(cur, prev_close)
 
-st.caption("Hinweis: 'Live' nutzt Intraday-Daten (i. d. R. ~15 Min. Verzögerung).")
+                st.metric(label=name, value=value_str, delta=f"{delta_str} (vs. Vortag)")
+            else:
+                s = fetch_daily_series(yft, start, end)
+                if s is None or s.empty:
+                    st.metric(label=name, value="–", delta="–")
+                    continue
+
+                latest = float(s.iloc[-1])
+                prev1d = get_prev(s, 1)
+                prev5d = get_prev(s, 5)
+                value_str = fmt_value(latest, kind)
+
+                if kind == "pct_tnx":
+                    delta1d = fmt_delta_pp_tnx(latest, prev1d) if prev1d else "–"
+                else:
+                    delta1d = fmt_delta_pct(latest, prev1d) if prev1d else "–"
+
+                st.metric(label=name, value=value_str, delta=f"{delta1d} (1d)")
+
+                if prev5d is not None:
+                    if kind == "pct_tnx":
+                        d5 = fmt_delta_pp_tnx(latest, prev5d)
+                    else:
+                        d5 = fmt_delta_pct(latest, prev5d)
+                    st.caption(f"Δ vs. 5d: {d5}")
+                else:
+                    st.caption("Δ vs. 5d: –")
+
+# Fear & Greed separat anzeigen
+st.subheader("Fear & Greed Index (CNN)")
+fg_val, fg_text = fetch_fear_greed()
+if fg_val is not None:
+    st.metric(label="Fear & Greed", value=f"{fg_val} ({fg_text})", delta="–")
+else:
+    st.error("Fear & Greed Index konnte nicht geladen werden.")
+
+st.caption("Hinweis: 'Live' nutzt Intraday-Daten (~15 Min Verzögerung bei Yahoo).")
