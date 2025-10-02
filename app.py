@@ -120,7 +120,7 @@ for group_name, tickers in GROUPS.items():
     for i, (name, meta) in enumerate(tickers.items()):
         yft = meta["ticker"]; kind = meta["fmt"]
         if gi < len(GROUPS) - 1:   # nur wenn nicht die letzte Gruppe
-        st.divider()           # oder st.markdown("---")
+            st.divider()           # oder st.markdown("---")
 
         with cols[i % 3]:
             if period_choice == "Live":
