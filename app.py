@@ -30,6 +30,7 @@ GROUPS = {
     },
     "🇪🇺 Europa": {
         "DAX": {"ticker": "^GDAXI", "fmt": "idx"},
+        "EuroStoxx50": {"ticker": "^STOXX50E", "fmt": "idx"},
         "EUR/USD": {"ticker": "EURUSD=X", "fmt": "fx"},
         "DE 10Y Yield": {"ticker": "FRED:DE10Y", "fmt": "pct_rate"},  # via FRED
     },
