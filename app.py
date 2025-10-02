@@ -28,6 +28,55 @@ days_map = {"30 Tage": 30, "90 Tage": 90, "1 Jahr": 365}
 today = date.today()
 start = today - timedelta(days=days_map.get(period_choice, 30))
 
+st.subheader("⌚ Börsenzeiten & Status")
+
+# CSS kompakter machen
+st.markdown("""
+<style>
+.market-box {
+    font-size: 12px;
+    padding: 4px 6px;
+    margin: 2px 0;
+    border: 1px solid #444;
+    border-radius: 6px;
+    min-height: 90px;
+}
+.market-title {
+    font-weight: 600;
+    font-size: 13px;
+}
+.market-open {
+    color: #00c853;  /* Grün */
+    font-weight: 600;
+}
+.market-closed {
+    color: #e53935;  /* Rot */
+    font-weight: 600;
+}
+.market-sub {
+    color: #aaa;
+    font-size: 11px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+cols = st.columns(6)  # 👉 jetzt 6 Spalten
+for i, m in enumerate(MARKETS):
+    status, hours_local, countdown = market_status(m, USER_TZ)
+    color_class = "market-open" if status == "Offen" else "market-closed"
+    with cols[i % 6]:
+        st.markdown(
+            f"""
+            <div class="market-box">
+                <div class="market-title">{m['name']}</div>
+                <div class="{color_class}">{status}</div>
+                <div class="market-sub">{hours_local}</div>
+                <div class="market-sub">{countdown}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
 # ================== GROUPS ==================
 GROUPS = {
     "🇺🇸 USA": {
