@@ -73,7 +73,7 @@ def market_status(market: dict, user_tz: ZoneInfo) -> tuple[str, str, str]:
     if market.get("always_open"):
         open_dt  = datetime.combine(m_now.date(), market["open"],  tzinfo=m_tz).astimezone(user_tz)
         close_dt = datetime.combine(m_now.date(), market["close"], tzinfo=m_tz).astimezone(user_tz)
-        return ("Offen", f"{open_dt:%H:%M}–{close_dt:%H:%M}", "24/7")
+        return ("Offen", "24/7")
 
     is_day = wd in market["days"]
     open_dt_m = datetime.combine(m_now.date(), market["open"],  tzinfo=m_tz)
