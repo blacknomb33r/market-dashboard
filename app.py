@@ -156,7 +156,6 @@ def market_status(market: dict, user_tz: ZoneInfo) -> tuple[str, str, str]:
 
 
 st.subheader("Börsenzeiten & Status")
-
 # --- CSS für Responsive Grid ---
 st.markdown("""
 <style>
@@ -206,6 +205,7 @@ for m in MARKETS:
     """)
 
 st.markdown(f"<div class='market-grid'>{''.join(boxes)}</div>", unsafe_allow_html=True)
+
 # ================== GROUPS ==================
 GROUPS = {
     "🇺🇸 USA": {
