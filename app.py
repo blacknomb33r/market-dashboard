@@ -5,35 +5,33 @@ import pandas as pd
 import math
 from typing import Optional
 
-# ========== PAGE ==========
+# ================== PAGE ==================
 st.set_page_config(page_title="Daily Market Dashboard", layout="wide")
-st.title("Daily Market Dashboard")
+st.title("📊 Daily Market Dashboard (KPI only)")
 
-# ========== SIDEBAR ==========
+# ================== SIDEBAR ==================
 st.sidebar.header("Zeitraum")
 period_choice = st.sidebar.selectbox(
     "Zeitraum",
-    ["Live", "30 Tage", "90 Tage", "1 Jahr"],   # Live ist Default
+    ["Live", "30 Tage", "90 Tage", "1 Jahr"],   # Live als Default
     index=0
 )
 days_map = {"30 Tage": 30, "90 Tage": 90, "1 Jahr": 365}
 today = date.today()
 start = today - timedelta(days=days_map.get(period_choice, 30))
 
-# ========== GROUPS ==========
+# ================== GROUPS ==================
 GROUPS = {
     "🇺🇸 USA": {
         "S&P 500": {"ticker": "^GSPC", "fmt": "idx"},
         "Nasdaq": {"ticker": "^IXIC", "fmt": "idx"},
-        "US 10Y Yield": {"ticker": "^TNX", "fmt": "pct_rate"},   # normale Prozentwerte
+        "US 10Y Yield": {"ticker": "^TNX", "fmt": "pct_rate"},  # echte %
         "USD/JPY": {"ticker": "JPY=X", "fmt": "fx"},
     },
     "🇪🇺 Europa": {
         "DAX": {"ticker": "^GDAXI", "fmt": "idx"},
-        "EuroStoxx50": {"ticker": "^STOXX50E", "fmt": "idx"},
-        "FTSE100": {"ticker": "^FTSE", "fmt": "idx"},
-        "DE 10Y Yield": {"ticker": "FRED:DE10Y", "fmt": "pct_rate"},  # via FRED
         "EUR/USD": {"ticker": "EURUSD=X", "fmt": "fx"},
+        "DE 10Y Yield": {"ticker": "FRED:DE10Y", "fmt": "pct_rate"},  # via FRED
     },
     "⛽ Rohstoffe": {
         "WTI Oil": {"ticker": "CL=F", "fmt": "px"},
@@ -47,20 +45,43 @@ GROUPS = {
     },
     "📉 Index": {
         "VIX": {"ticker": "^VIX", "fmt": "idx"},
-        "SKEW": {"ticker": "^SKEW", "fmt": "idx"},
+        "Put/Call Ratio": {"ticker": "^CPC", "fmt": "idx"},  # robust abgefangen
     },
 }
 
-# ========== HELPERS ==========
+# 1-Satz-Erklärungen (für ℹ️ Info)
+DESCRIPTIONS = {
+    # USA
+    "S&P 500": "US-Blue-Chip-Index: 500 größte börsennotierte US-Unternehmen.",
+    "Nasdaq": "Technologielastiger US-Index mit über 100 großen Firmen.",
+    "US 10Y Yield": "Rendite 10-jähriger US-Staatsanleihen – wichtigster Zins-Benchmark.",
+    "USD/JPY": "Wechselkurs US-Dollar gegen Japanischen Yen.",
+    # Europa
+    "DAX": "40 größte börsennotierte Unternehmen in Deutschland.",
+    "EUR/USD": "Wechselkurs Euro gegen US-Dollar.",
+    "DE 10Y Yield": "Rendite 10-jähriger deutscher Bundesanleihen.",
+    # Rohstoffe
+    "WTI Oil": "US-Rohöl (West Texas Intermediate) in USD pro Barrel.",
+    "Gold": "Goldpreis in USD pro Feinunze.",
+    "Silver": "Silberpreis in USD pro Feinunze.",
+    "Platinum": "Platinpreis in USD pro Feinunze.",
+    # Krypto
+    "Bitcoin": "Größte Kryptowährung nach Marktkapitalisierung.",
+    "Ethereum": "Zweitgrößte Kryptowährung; Plattform für Smart Contracts.",
+    # Sentiment / Risiko
+    "VIX": "Volatilitätsindex (S&P 500); misst erwartete Schwankungen.",
+    "Put/Call Ratio": "Verhältnis Put- zu Call-Optionen (Sentiment-Indikator).",
+}
+
+# ================== HELPERS ==================
 def fmt_value(x: Optional[float], kind: str) -> str:
-    """Format aktueller Wert je nach Typ."""
     if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
         return "–"
-    if kind == "pct_rate":   # normale Prozentwerte (US10Y, DE10Y)
+    if kind == "pct_rate":   # Renditen in %
         return f"{x:.2f}%"
-    if kind == "fx":
+    if kind == "fx":         # Devisen
         return f"{x:.4f}"
-    return f"{x:.2f}"
+    return f"{x:.2f}"        # Indizes/Preise
 
 def delta_pct(cur: Optional[float], prev: Optional[float]) -> Optional[float]:
     if cur is None or prev is None or prev == 0:
@@ -74,7 +95,7 @@ def fmt_delta_pct(cur: Optional[float], prev: Optional[float]) -> str:
     return f"{chg:+.2f}%"
 
 def fmt_delta_pp_rate(cur: Optional[float], prev: Optional[float]) -> str:
-    """Prozentpunkte-Differenz (z. B. Renditen)."""
+    # Prozentpunkte (für Renditen)
     if cur is None or prev is None:
         return "–"
     diff = cur - prev
@@ -82,7 +103,6 @@ def fmt_delta_pp_rate(cur: Optional[float], prev: Optional[float]) -> str:
 
 @st.cache_data(ttl=90)
 def fetch_intraday_last(yfticker: str) -> Optional[float]:
-    """Letzter Intraday-Wert (1m-Intervall, ~15min Delay bei Yahoo)."""
     try:
         df = yf.Ticker(yfticker).history(period="1d", interval="1m")
         if df is None or df.empty or "Close" not in df.columns:
@@ -93,7 +113,6 @@ def fetch_intraday_last(yfticker: str) -> Optional[float]:
 
 @st.cache_data(ttl=1800)
 def fetch_prev_daily_close(yfticker: str) -> Optional[float]:
-    """Letzter abgeschlossener Tages-Close (für Δ vs. Vortag im Live-Modus)."""
     try:
         df = yf.Ticker(yfticker).history(period="7d", interval="1d")
         if df is None or df.empty or "Close" not in df.columns:
@@ -101,13 +120,12 @@ def fetch_prev_daily_close(yfticker: str) -> Optional[float]:
         closes = df["Close"].dropna()
         if len(closes) < 1:
             return None
-        return float(closes.iloc[-1])   # jüngster abgeschlossener Tages-Close
+        return float(closes.iloc[-1])   # letzter abgeschlossener Tages-Close
     except Exception:
         return None
 
 @st.cache_data(ttl=3600)
 def fetch_daily_series_range(yfticker: str, start_date: date, end_date: date) -> Optional[pd.Series]:
-    """Daily-Closing-Serie (auto_adjust=True)."""
     try:
         df = yf.download(yfticker, start=start_date, end=end_date, auto_adjust=True, progress=False)
         if df is None or df.empty or "Close" not in df.columns:
@@ -146,7 +164,7 @@ def get_prev_by_sessions(series: pd.Series, sessions_back: int) -> Optional[floa
     except Exception:
         return None
 
-# ---- YTD / MTD Helper (yfinance) ----
+# ---- YTD / MTD (Daily-Basis) ----
 @st.cache_data(ttl=1800)
 def get_ytd_series(yfticker: str) -> Optional[pd.Series]:
     ystart = date(today.year, 1, 1)
@@ -157,7 +175,7 @@ def get_mtd_series(yfticker: str) -> Optional[pd.Series]:
     mstart = date(today.year, today.month, 1)
     return fetch_daily_series_range(yfticker, mstart, today + timedelta(days=1))
 
-# ---- FRED: DE10Y ----
+# ---- FRED: DE 10Y ----
 from fredapi import Fred
 fred_key = st.secrets.get("FRED_API_KEY", None)
 fred = Fred(api_key=fred_key) if fred_key else None
@@ -177,11 +195,7 @@ def fred_series(series_id: str, start_date: date, end_date: date) -> Optional[pd
         return None
 
 def get_de10y_series(start_date: date, end_date: date) -> Optional[pd.Series]:
-    """
-    DE 10Y Rendite.
-    Häufig genutzt bei FRED:
-      - IRLTLT01DEM156N (Long-Term Government Bond Yields: 10-year: Germany) [meist monatlich]
-    """
+    # Häufig genutzt: IRLTLT01DEM156N (langfr. 10y, oft Monatsfrequenz)
     return fred_series("IRLTLT01DEM156N", start_date, end_date)
 
 def latest_de10y() -> Optional[float]:
@@ -199,7 +213,18 @@ def ytd_mtd_de10y():
     mser = get_de10y_series(date(today.year, today.month,1), today + timedelta(days=1))
     return yser, mser
 
-# ========== RENDER ==========
+# ---- Info-Wrapper ----
+def render_metric(name: str, value: str, delta: str, extra_caption: str = ""):
+    st.metric(label=name, value=value, delta=delta)
+    if extra_caption:
+        st.caption(extra_caption)
+    # Info-Expander (ℹ️)
+    desc = DESCRIPTIONS.get(name)
+    if desc:
+        with st.expander("ℹ️ Info", expanded=False):
+            st.write(desc)
+
+# ================== RENDER ==================
 for gi, (group_name, tickers) in enumerate(GROUPS.items()):
     st.subheader(group_name)
     cols = st.columns(3)
@@ -209,24 +234,22 @@ for gi, (group_name, tickers) in enumerate(GROUPS.items()):
 
         with cols[i % 3]:
 
-            # ----- Spezialfall: DE10Y via FRED -----
+            # ---- DE10Y via FRED ----
             if yft.startswith("FRED:"):
                 if fred is None:
-                    st.metric(label=name, value="–", delta="FRED Key fehlt")
-                    st.caption("YTD: – | MTD: –")
+                    render_metric(name, "–", "FRED Key fehlt", "YTD: – | MTD: –")
                     continue
 
                 cur = latest_de10y()
                 prev = prev_close_de10y()
-                value_str = fmt_value(cur, "pct_rate")
-
-                # Live vs. Vortag (bei monatlichen Daten oft letzte verfügbare Periode)
+                val_str = fmt_value(cur, "pct_rate")
+                d_live = fmt_delta_pp_rate(cur, prev)
                 if period_choice == "Live":
-                    st.metric(label=name, value=value_str, delta=f"{fmt_delta_pp_rate(cur, prev)} (vs. Vortag)")
+                    delta_main = f"{d_live} (vs. Vortag)"
                 else:
-                    st.metric(label=name, value=value_str, delta=f"{fmt_delta_pp_rate(cur, prev)}")
+                    delta_main = d_live
 
-                # YTD / MTD (in % relativ zur Basis)
+                # YTD/MTD
                 yser, mser = ytd_mtd_de10y()
                 y_base = series_first_value(yser)
                 m_base = series_first_value(mser)
@@ -234,57 +257,53 @@ for gi, (group_name, tickers) in enumerate(GROUPS.items()):
                 mtd = delta_pct(cur, m_base)
                 ytxt = "–" if (ytd is None or math.isnan(ytd)) else f"{ytd:+.2f}%"
                 mtxt = "–" if (mtd is None or math.isnan(mtd)) else f"{mtd:+.2f}%"
-                st.caption(f"YTD: {ytxt} | MTD: {mtxt}")
+                caption = f"YTD: {ytxt} | MTD: {mtxt}"
+
+                render_metric(name, val_str, delta_main, caption)
                 continue
 
-            # ----- normale yfinance Ticker -----
+            # ---- Normale Yahoo-Ticker ----
             if period_choice == "Live":
-                # aktueller Intraday-Wert + Δ vs. Vortagsschluss
                 cur = fetch_intraday_last(yft)
                 prev_close = fetch_prev_daily_close(yft)
-                value_str = fmt_value(cur, kind)
-
+                val_str = fmt_value(cur, kind)
+                # Delta: Renditen in pp, sonst %
                 if kind == "pct_rate":
-                    delta_live = fmt_delta_pp_rate(cur, prev_close)
+                    d_live = fmt_delta_pp_rate(cur, prev_close)
                 else:
-                    delta_live = fmt_delta_pct(cur, prev_close)
+                    d_live = fmt_delta_pct(cur, prev_close)
+                delta_main = f"{d_live} (vs. Vortag)"
 
-                st.metric(label=name, value=value_str, delta=f"{delta_live} (vs. Vortag)")
-
-                # YTD / MTD (aus Daily-Serien)
+                # YTD/MTD
                 yser = get_ytd_series(yft)
                 mser = get_mtd_series(yft)
                 y_base = series_first_value(yser)
                 m_base = series_first_value(mser)
-
-                # Yields: YTD/MTD als % Veränderung relativ zur Basis (keine pp)
                 ytd = delta_pct(cur, y_base)
                 mtd = delta_pct(cur, m_base)
-
                 ytxt = "–" if (ytd is None or math.isnan(ytd)) else f"{ytd:+.2f}%"
                 mtxt = "–" if (mtd is None or math.isnan(mtd)) else f"{mtd:+.2f}%"
-                st.caption(f"YTD: {ytxt} | MTD: {mtxt}")
+                caption = f"YTD: {ytxt} | MTD: {mtxt}"
+
+                render_metric(name, val_str, delta_main, caption)
 
             else:
-                # Historische Modi: 1d-Metric + 5d in Caption
                 s = fetch_daily_series_range(yft, start, today + timedelta(days=1))
                 if s is None or s.empty:
-                    st.metric(label=name, value="–", delta="–")
-                    st.caption("YTD: – | MTD: –")
+                    render_metric(name, "–", "–", "YTD: – | MTD: –")
                     continue
 
                 latest = series_last_value(s)
                 prev1d = get_prev_by_sessions(s, 1)
                 prev5d = get_prev_by_sessions(s, 5)
-                value_str = fmt_value(latest, kind)
+                val_str = fmt_value(latest, kind)
 
-                # 1d Delta
+                # 1d-Delta
                 if kind == "pct_rate":
-                    delta1d = fmt_delta_pp_rate(latest, prev1d) if prev1d is not None else "–"
+                    d1 = fmt_delta_pp_rate(latest, prev1d) if prev1d is not None else "–"
                 else:
-                    delta1d = fmt_delta_pct(latest, prev1d) if prev1d is not None else "–"
-
-                st.metric(label=name, value=value_str, delta=f"{delta1d} (1d)")
+                    d1 = fmt_delta_pct(latest, prev1d) if prev1d is not None else "–"
+                delta_main = f"{d1} (1d)"
 
                 # 5d optional
                 if prev5d is not None:
@@ -292,9 +311,9 @@ for gi, (group_name, tickers) in enumerate(GROUPS.items()):
                         d5 = fmt_delta_pp_rate(latest, prev5d)
                     else:
                         d5 = fmt_delta_pct(latest, prev5d)
-                    st.caption(f"Δ vs. 5d: {d5}")
+                    five_d_text = f"Δ vs. 5d: {d5}"
                 else:
-                    st.caption("Δ vs. 5d: –")
+                    five_d_text = "Δ vs. 5d: –"
 
                 # YTD / MTD
                 yser = get_ytd_series(yft)
@@ -305,10 +324,12 @@ for gi, (group_name, tickers) in enumerate(GROUPS.items()):
                 mtd = delta_pct(latest, m_base)
                 ytxt = "–" if (ytd is None or math.isnan(ytd)) else f"{ytd:+.2f}%"
                 mtxt = "–" if (mtd is None or math.isnan(mtd)) else f"{mtd:+.2f}%"
-                st.caption(f"YTD: {ytxt} | MTD: {mtxt}")
 
-    # Eine Trennlinie pro Gruppe (außer nach der letzten)
+                caption = f"{five_d_text} | YTD: {ytxt} | MTD: {mtxt}"
+                render_metric(name, val_str, delta_main, caption)
+
+    # Trennlinie zwischen Gruppen (außer nach letzter)
     if gi < len(GROUPS) - 1:
         st.divider()
 
-st.caption("Hinweis: 'Live' nutzt Intraday-Daten (Yahoo ~15 Min Verzögerung). DE10Y via FRED (monatl. Daten je nach Serie).")
+st.caption("Hinweis: 'Live' nutzt Intraday-Daten (Yahoo ~15 Min Verzögerung). DE10Y via FRED (Serie IRLTLT01DEM156N; häufig Monatsdaten).")
