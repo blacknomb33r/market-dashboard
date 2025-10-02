@@ -113,7 +113,7 @@ def get_prev(series: pd.Series, sessions_back: int) -> float | None:
 
 
 # -------- KPI Anzeige --------
-for group_name, tickers in GROUPS.items():
+for gi, (group_name, tickers) in enumerate(GROUPS.items()):
     st.subheader(group_name)
     cols = st.columns(3)
 
