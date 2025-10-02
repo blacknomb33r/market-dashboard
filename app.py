@@ -154,7 +154,7 @@ def market_status(market: dict, user_tz: ZoneInfo) -> tuple[str, str, str]:
         mm, ss = divmod(rem, 60)
         return ("Geschlossen", user_hours, f"öffnet in {hh:02d}:{mm:02d}:{ss:02d}")
 
-st.subheader("⌚ Börsenzeiten & Status")
+st.subheader("Börsenzeiten & Status")
 
 # kleine CSS für kompaktere Darstellung
 st.markdown("""
