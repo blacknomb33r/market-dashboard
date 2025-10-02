@@ -28,8 +28,77 @@ days_map = {"30 Tage": 30, "90 Tage": 90, "1 Jahr": 365}
 today = date.today()
 start = today - timedelta(days=days_map.get(period_choice, 30))
 
-st.subheader("⌚ Börsenzeiten & Status")
+st.subheader("Börsenzeiten & Status")
+# ========== MARKET HOURS (kompakt, ohne Feiertage) ==========
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
+# 1) User-Zeitzone (leichtgewichtige Auswahl)
+tz_options = ["Europe/Berlin", "Europe/London", "America/New_York", "Europe/Zurich", "Europe/Paris"]
+user_tz_name = st.sidebar.selectbox("Deine Zeitzone", tz_options, index=0)
+USER_TZ = ZoneInfo(user_tz_name)
+
+# 2) Marktdefinitionen (Mo–Fr; lokale Börsenzeiten)
+MARKETS = [
+    {"name": "NYSE/Nasdaq",   "tz": "America/New_York", "open": time(9,30), "close": time(16,0),  "days": {0,1,2,3,4}},
+    {"name": "Xetra (Frankfurt)", "tz": "Europe/Berlin", "open": time(9,0),  "close": time(17,30), "days": {0,1,2,3,4}},
+    {"name": "LSE (London)",  "tz": "Europe/London",    "open": time(8,0),  "close": time(16,30), "days": {0,1,2,3,4}},
+    {"name": "SIX (Zürich)",  "tz": "Europe/Zurich",    "open": time(9,0),  "close": time(17,30), "days": {0,1,2,3,4}},
+    {"name": "Euronext Paris","tz": "Europe/Paris",     "open": time(9,0),  "close": time(17,30), "days": {0,1,2,3,4}},
+    {"name": "Crypto (BTC/ETH)","tz":"UTC",             "open": time(0,0),  "close": time(23,59,59),"days": {0,1,2,3,4,5,6}, "always_open": True},
+]
+
+def now_in_tz(tz_name: str) -> datetime:
+    return datetime.now(ZoneInfo(tz_name))
+
+def next_weekday(d: datetime, valid_days: set[int]) -> datetime:
+    for i in range(1, 8):
+        cand = d + timedelta(days=i)
+        if cand.weekday() in valid_days:
+            return cand
+    return d + timedelta(days=1)
+
+def market_status(market: dict, user_tz: ZoneInfo) -> tuple[str, str, str]:
+    """
+    Returns (status, user_local_hours, countdown)
+    status: 'Offen' | 'Geschlossen'
+    user_local_hours: z.B. '15:30–22:00 (deine Zeit)'
+    countdown: 'schließt in HH:MM:SS' | 'öffnet in HH:MM:SS' | 'läuft 24/7'
+    """
+    m_tz = ZoneInfo(market["tz"])
+    m_now = now_in_tz(market["tz"])
+    wd = m_now.weekday()
+
+    # 24/7 (Krypto)
+    if market.get("always_open"):
+        open_dt  = datetime.combine(m_now.date(), market["open"],  tzinfo=m_tz).astimezone(user_tz)
+        close_dt = datetime.combine(m_now.date(), market["close"], tzinfo=m_tz).astimezone(user_tz)
+        return ("Offen", f"{open_dt:%H:%M}–{close_dt:%H:%M} (deine Zeit, 24/7)", "läuft 24/7")
+
+    is_day = wd in market["days"]
+    open_dt_m = datetime.combine(m_now.date(), market["open"],  tzinfo=m_tz)
+    close_dt_m= datetime.combine(m_now.date(), market["close"], tzinfo=m_tz)
+    open_user  = open_dt_m.astimezone(user_tz).strftime("%H:%M")
+    close_user = close_dt_m.astimezone(user_tz).strftime("%H:%M")
+    hours_user = f"{open_user}–{close_user} (deine Zeit)"
+
+    if is_day and open_dt_m <= m_now <= close_dt_m:
+        # Offen → Countdown bis Close
+        rem = close_dt_m - m_now
+        hh, rem = divmod(int(rem.total_seconds()), 3600)
+        mm, ss = divmod(rem, 60)
+        return ("Offen", hours_user, f"schließt in {hh:02d}:{mm:02d}:{ss:02d}")
+    else:
+        # Geschlossen → Countdown bis nächste Öffnung
+        if is_day and m_now < open_dt_m:
+            nxt_open = open_dt_m
+        else:
+            nxt_day = next_weekday(m_now, market["days"])
+            nxt_open = datetime.combine(nxt_day.date(), market["open"], tzinfo=m_tz)
+        rem = max(nxt_open - m_now, timedelta(0))
+        hh, rem = divmod(int(rem.total_seconds()), 3600)
+        mm, ss = divmod(rem, 60)
+        return ("Geschlossen", hours_user, f"öffnet in {hh:02d}:{mm:02d}:{ss:02d}")
 # CSS kompakter machen
 st.markdown("""
 <style>
