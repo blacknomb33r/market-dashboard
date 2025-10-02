@@ -4,6 +4,9 @@ from datetime import date, timedelta
 import pandas as pd
 import math
 from typing import Optional, Tuple
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
+
 
 # ================== PAGE ==================
 st.set_page_config(page_title="Daily Market Dashboard", layout="wide")
@@ -21,8 +24,6 @@ today = date.today()
 start = today - timedelta(days=days_map.get(period_choice, 30))
 
 # ================== TimeZone ==================
-from datetime import datetime, time, timedelta
-from zoneinfo import ZoneInfo
 
 # (1) User-Zeitzone einstellbar (Default: Berlin)
 tz_options = [
