@@ -16,12 +16,10 @@ period_choice = st.sidebar.selectbox(
 )
 days_map = {"30 Tage": 30, "90 Tage": 90, "1 Jahr": 365}
 end = date.today()
-if period_choice == "Aktuell":
-    start = end   # dummy
-else:
-    start = end - timedelta(days=days_map[period_choice])
+start = end - timedelta(days=days_map.get(period_choice, 30))
 
 # ---- Ticker-Definition ----
+# ^TNX liefert 10x den Prozentwert (z.B. 45.12 == 4.512%)
 TICKERS = {
     "VIX": {"ticker": "^VIX", "fmt": "idx"},
     "S&P 500": {"ticker": "^GSPC", "fmt": "idx"},
@@ -36,6 +34,7 @@ TICKERS = {
     "Platinum": {"ticker": "PL=F", "fmt": "px"},
 }
 
+# -------- Helpers --------
 def fmt_value(x: float, kind: str) -> str:
     if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
         return "–"
@@ -45,18 +44,46 @@ def fmt_value(x: float, kind: str) -> str:
         return f"{x:.4f}"
     return f"{x:.2f}"
 
-def fetch_intraday(yfticker: str):
-    """Lädt den letzten Wert aus 1m-Intervallen"""
+def fmt_delta_pct(cur: float, prev: float) -> str:
+    if prev == 0 or prev is None or cur is None:
+        return "–"
+    chg = (cur - prev) / prev * 100
+    return f"{chg:+.2f}%"
+
+def fmt_delta_pp_tnx(cur: float, prev: float) -> str:
+    # ^TNX: Werte sind *10 skaliert* -> in %-Punkten rechnen
+    if prev is None or cur is None:
+        return "–"
+    diff_pp = (cur/10) - (prev/10)
+    return f"{diff_pp:+.2f} pp"
+
+@st.cache_data(ttl=90)  # kurz cachen, da "Aktuell"
+def fetch_intraday_last(yfticker: str) -> float | None:
     try:
         df = yf.Ticker(yfticker).history(period="1d", interval="1m")
-        if df is None or df.empty:
+        if df is None or df.empty or "Close" not in df.columns:
             return None
-        return float(df["Close"].iloc[-1])
+        return float(df["Close"].dropna().iloc[-1])
+    except Exception:
+        return None
+
+@st.cache_data(ttl=1800)  # 30 min
+def fetch_prev_daily_close(yfticker: str) -> float | None:
+    """Letzter *abgeschlossener* Tages-Schlusskurs (vorherige Handelssitzung)."""
+    try:
+        df = yf.Ticker(yfticker).history(period="5d", interval="1d")  # genug Puffer
+        if df is None or df.empty or "Close" not in df.columns:
+            return None
+        closes = df["Close"].dropna()
+        if len(closes) < 2:
+            return None
+        # letzter Eintrag ist der jüngste Tagesclose; der davor = Vortagsschluss
+        return float(closes.iloc[-1])  # Jüngster abgeschlossener Close
     except Exception:
         return None
 
 @st.cache_data(ttl=3600)
-def fetch_daily(yfticker: str, start, end) -> pd.Series | None:
+def fetch_daily_series(yfticker: str, start, end) -> pd.Series | None:
     try:
         df = yf.download(yfticker, start=start, end=end, auto_adjust=True, progress=False)
         if df is None or df.empty or "Close" not in df.columns:
@@ -70,7 +97,16 @@ def fetch_daily(yfticker: str, start, end) -> pd.Series | None:
     except Exception:
         return None
 
-# ---- KPI-Anzeige ----
+def get_prev(series: pd.Series, sessions_back: int) -> float | None:
+    idx = len(series) - (sessions_back + 1)
+    if idx < 0:
+        return None
+    try:
+        return float(series.iloc[idx])
+    except Exception:
+        return None
+
+# -------- KPI UI --------
 st.subheader(f"Kern-KPIs ({period_choice})")
 cols = st.columns(3)
 
@@ -79,26 +115,47 @@ for i, (name, meta) in enumerate(TICKERS.items()):
 
     with cols[i % 3]:
         if period_choice == "Aktuell":
-            val = fetch_intraday(yft)
-            st.metric(label=name, value=fmt_value(val, kind), delta="–")
+            # Aktueller Intraday-Wert + Δ vs. Vortagsschluss
+            cur = fetch_intraday_last(yft)
+            prev_close = fetch_prev_daily_close(yft)
+
+            value_str = fmt_value(cur, kind)
+
+            if kind == "pct_tnx":
+                delta_str = fmt_delta_pp_tnx(cur, prev_close) if (cur is not None and prev_close is not None) else "–"
+                st.metric(label=name, value=value_str, delta=f"{delta_str} (vs. Vortag)")
+            else:
+                delta_str = fmt_delta_pct(cur, prev_close) if (cur is not None and prev_close is not None) else "–"
+                st.metric(label=name, value=value_str, delta=f"{delta_str} (vs. Vortag)")
         else:
-            s = fetch_daily(yft, start, end)
+            # Historisch: 1d + 5d
+            s = fetch_daily_series(yft, start, end)
             if s is None or s.empty:
                 st.metric(label=name, value="–", delta="–")
                 continue
 
             latest = float(s.iloc[-1])
-            prev1d = float(s.iloc[-2]) if len(s) >= 2 else None
-            prev5d = float(s.iloc[-6]) if len(s) >= 6 else None
+            prev1d = get_prev(s, 1)
+            prev5d = get_prev(s, 5)
 
             value_str = fmt_value(latest, kind)
 
-            if prev1d is not None:
-                delta1d = (latest - prev1d) / prev1d * 100 if prev1d != 0 else 0
-                st.metric(label=name, value=value_str, delta=f"{delta1d:+.2f}% (1d)")
+            # 1d Delta
+            if kind == "pct_tnx":
+                delta1d = fmt_delta_pp_tnx(latest, prev1d) if prev1d is not None else "–"
             else:
-                st.metric(label=name, value=value_str, delta="–")
+                delta1d = fmt_delta_pct(latest, prev1d) if prev1d is not None else "–"
 
+            st.metric(label=name, value=value_str, delta=f"{delta1d} (1d)")
+
+            # 5d optional
             if prev5d is not None:
-                delta5d = (latest - prev5d) / prev5d * 100 if prev5d != 0 else 0
-                st.caption(f"Δ vs. 5d: {delta5d:+.2f}%")
+                if kind == "pct_tnx":
+                    d5 = fmt_delta_pp_tnx(latest, prev5d)
+                else:
+                    d5 = fmt_delta_pct(latest, prev5d)
+                st.caption(f"Δ vs. 5d: {d5}")
+            else:
+                st.caption("Δ vs. 5d: –")
+
+st.caption("Hinweis: 'Aktuell' nutzt Intraday-Daten (i. d. R. ~15 Min. Verzögerung).")
