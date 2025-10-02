@@ -43,14 +43,6 @@ GROUPS = {
 }
 
 # -------- Helpers --------
-def get_fear_greed_index():
-    try:
-        fg = fear_and_greed.get()
-        # fg.value = Zahl, fg.description = Text, fg.last_update
-        return fg.value, fg.description
-    except Exception:
-        return None, None
-    
 def fmt_value(x: float, kind: str) -> str:
     if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
         return "–"
@@ -119,19 +111,6 @@ def get_prev(series: pd.Series, sessions_back: int) -> float | None:
     except Exception:
         return None
 
-# ---- Fear & Greed Index ----
-def fetch_fear_greed():
-    try:
-        url = "https://production.dataviz.cnn.io/index/fearandgreed/"
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            val = data.get("fear_and_greed", {}).get("now", {}).get("value")
-            rating = data.get("fear_and_greed", {}).get("now", {}).get("value_text")
-            return val, rating
-    except Exception:
-        return None, None
-    return None, None
 
 # -------- KPI Anzeige --------
 for group_name, tickers in GROUPS.items():
@@ -180,14 +159,4 @@ for group_name, tickers in GROUPS.items():
                 else:
                     st.caption("Δ vs. 5d: –")
 
-'''
-# Fear & Greed separat anzeigen
-st.subheader("Fear & Greed Index (CNN)")
-fg_val, fg_desc = get_fear_greed_index()
-if fg_val is not None:
-    st.metric(label="Fear & Greed", value=f"{fg_val:.1f}", delta="–")
-    st.caption(f"{fg_desc}")
-else:
-    st.error("Fehler bei F&G Laden")
-'''
 st.caption("Hinweis: 'Live' nutzt Intraday-Daten (~15 Min Verzögerung bei Yahoo).")
