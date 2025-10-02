@@ -6,6 +6,10 @@ import math
 from typing import Optional, Tuple
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
+from streamlit_autorefresh import st_autorefresh
+
+# Auto-Refresh alle 30 Sekunden
+st_autorefresh(interval=30 * 1000, key="markets_refresh")
 
 
 # ================== PAGE ==================
@@ -34,26 +38,14 @@ USER_TZ = ZoneInfo(user_tz_name)
 
 # Optional: Auto-Refresh (alle 30 Sekunden)
 st.sidebar.toggle("Auto-Refresh (30s)", value=True, key="auto_refresh_toggle")
-if st.session_state.get("auto_refresh_toggle"):
-    st.experimental_rerun  # to silence linters
-    st_autorefresh = st.experimental_data_editor if False else None  # dummy to avoid NameError
+# Optional: Auto-Refresh per Checkbox
+auto_refresh = st.sidebar.checkbox("Auto-Refresh (30s)", value=False)
+if auto_refresh:
     try:
-        from streamlit.runtime.scriptrunner import add_script_run_ctx  # noqa
-        st.experimental_rerun  # no-op placeholder
-    except Exception:
-        pass
-    # offizieller Weg:
-    st_autorefresh = st.experimental_rerun  # alias, wird unten nicht genutzt
-    st.runtime.legacy_caching.caching  # noop
-
-# Kleine Hilfsfunktion für Auto-Refresh ohne extra Pakete:
-try:
-    from streamlit_autorefresh import st_autorefresh  # falls installiert, fein
-except Exception:
-    def st_autorefresh(interval=None, key=None, limit=None):
-        # Fallback: nutze Streamlits 'empty' + timeout per JS wäre schöner.
-        # Wir lassen es leer, wenn Paket nicht da ist.
-        return None
+        from streamlit_autorefresh import st_autorefresh
+        st_autorefresh(interval=30 * 1000, key="markets_refresh")
+    except ImportError:
+        st.warning("Für Auto-Refresh bitte 'streamlit-autorefresh' in requirements.txt installieren.")
 
 if st.session_state.get("auto_refresh_toggle"):
     st_autorefresh(interval=30000, key="markets_refresh")  # 30s
