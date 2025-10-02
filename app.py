@@ -157,32 +157,54 @@ def market_status(market: dict, user_tz: ZoneInfo) -> tuple[str, str, str]:
 st.subheader("Börsenzeiten & Status")
 
 # kleine CSS für kompaktere Darstellung
+st.subheader("⌚ Börsenzeiten & Status")
+
+# CSS kompakter machen
 st.markdown("""
 <style>
 .market-box {
-    font-size: 13px;
-    padding: 6px 10px;
-    margin: 4px 0;
-    border: 1px solid #ddd;
+    font-size: 12px;
+    padding: 4px 6px;
+    margin: 2px 0;
+    border: 1px solid #444;
     border-radius: 6px;
+    min-height: 90px;
 }
 .market-title {
     font-weight: 600;
+    font-size: 13px;
 }
 .market-open {
-    color: green;
+    color: #00c853;  /* Grün */
     font-weight: 600;
 }
 .market-closed {
-    color: red;
+    color: #e53935;  /* Rot */
     font-weight: 600;
 }
 .market-sub {
-    color: #666;
-    font-size: 12px;
+    color: #aaa;
+    font-size: 11px;
 }
 </style>
 """, unsafe_allow_html=True)
+
+cols = st.columns(6)  # 👉 jetzt 6 Spalten
+for i, m in enumerate(MARKETS):
+    status, hours_local, countdown = market_status(m, USER_TZ)
+    color_class = "market-open" if status == "Offen" else "market-closed"
+    with cols[i % 6]:
+        st.markdown(
+            f"""
+            <div class="market-box">
+                <div class="market-title">{m['name']}</div>
+                <div class="{color_class}">{status}</div>
+                <div class="market-sub">{hours_local}</div>
+                <div class="market-sub">{countdown}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 cols = st.columns(3)
 for i, m in enumerate(MARKETS):
