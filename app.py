@@ -180,6 +180,7 @@ for group_name, tickers in GROUPS.items():
                 else:
                     st.caption("Δ vs. 5d: –")
 
+'''
 # Fear & Greed separat anzeigen
 st.subheader("Fear & Greed Index (CNN)")
 fg_val, fg_desc = get_fear_greed_index()
@@ -188,5 +189,5 @@ if fg_val is not None:
     st.caption(f"{fg_desc}")
 else:
     st.error("Fehler bei F&G Laden")
-
+'''
 st.caption("Hinweis: 'Live' nutzt Intraday-Daten (~15 Min Verzögerung bei Yahoo).")
