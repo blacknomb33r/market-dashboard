@@ -119,8 +119,6 @@ for gi, (group_name, tickers) in enumerate(GROUPS.items()):
 
     for i, (name, meta) in enumerate(tickers.items()):
         yft = meta["ticker"]; kind = meta["fmt"]
-        if gi < len(GROUPS) - 1:   # nur wenn nicht die letzte Gruppe
-            st.divider()           # oder st.markdown("---")
 
         with cols[i % 3]:
             if period_choice == "Live":
@@ -160,5 +158,7 @@ for gi, (group_name, tickers) in enumerate(GROUPS.items()):
                     st.caption(f"Δ vs. 5d: {d5}")
                 else:
                     st.caption("Δ vs. 5d: –")
+    if gi < len(GROUPS) - 1:
+        st.divider()
 
 st.caption("Hinweis: 'Live' nutzt Intraday-Daten (~15 Min Verzögerung bei Yahoo).")
