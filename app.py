@@ -309,7 +309,7 @@ def fetch_intraday_last(yfticker: str) -> Optional[float]:
     except Exception:
         return None
 
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=3600)
 def fetch_prev_daily_close(yfticker: str) -> Optional[float]:
     try:
         df = yf.Ticker(yfticker).history(period="7d", interval="1d")
