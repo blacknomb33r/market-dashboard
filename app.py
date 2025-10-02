@@ -154,11 +154,8 @@ def market_status(market: dict, user_tz: ZoneInfo) -> tuple[str, str, str]:
         mm, ss = divmod(rem, 60)
         return ("Geschlossen", user_hours, f"öffnet in {hh:02d}:{mm:02d}:{ss:02d}")
 
-st.subheader("Börsenzeiten & Status")
 
-# kleine CSS für kompaktere Darstellung
 st.subheader("⌚ Börsenzeiten & Status")
-
 # CSS kompakter machen
 st.markdown("""
 <style>
@@ -194,23 +191,6 @@ for i, m in enumerate(MARKETS):
     status, hours_local, countdown = market_status(m, USER_TZ)
     color_class = "market-open" if status == "Offen" else "market-closed"
     with cols[i % 6]:
-        st.markdown(
-            f"""
-            <div class="market-box">
-                <div class="market-title">{m['name']}</div>
-                <div class="{color_class}">{status}</div>
-                <div class="market-sub">{hours_local}</div>
-                <div class="market-sub">{countdown}</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-cols = st.columns(3)
-for i, m in enumerate(MARKETS):
-    status, hours_local, countdown = market_status(m, USER_TZ)
-    color_class = "market-open" if status == "Offen" else "market-closed"
-    with cols[i % 3]:
         st.markdown(
             f"""
             <div class="market-box">
