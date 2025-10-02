@@ -155,16 +155,51 @@ def market_status(market: dict, user_tz: ZoneInfo) -> tuple[str, str, str]:
         return ("Geschlossen", user_hours, f"öffnet in {hh:02d}:{mm:02d}:{ss:02d}")
 
 st.subheader("⌚ Börsenzeiten & Status")
-mcols = st.columns(3)
+
+# kleine CSS für kompaktere Darstellung
+st.markdown("""
+<style>
+.market-box {
+    font-size: 13px;
+    padding: 6px 10px;
+    margin: 4px 0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+.market-title {
+    font-weight: 600;
+}
+.market-open {
+    color: green;
+    font-weight: 600;
+}
+.market-closed {
+    color: red;
+    font-weight: 600;
+}
+.market-sub {
+    color: #666;
+    font-size: 12px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+cols = st.columns(3)
 for i, m in enumerate(MARKETS):
     status, hours_local, countdown = market_status(m, USER_TZ)
-    with mcols[i % 3]:
-        st.metric(
-            label=m["name"],
-            value=status,
-            delta=countdown
+    color_class = "market-open" if status == "Offen" else "market-closed"
+    with cols[i % 3]:
+        st.markdown(
+            f"""
+            <div class="market-box">
+                <div class="market-title">{m['name']}</div>
+                <div class="{color_class}">{status}</div>
+                <div class="market-sub">{hours_local}</div>
+                <div class="market-sub">{countdown}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
         )
-        st.caption(hours_local)
 
 # ================== GROUPS ==================
 GROUPS = {
