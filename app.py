@@ -9,8 +9,8 @@ st.title("📊 Daily Market Dashboard (KPI only)")
 
 # ---- Zeitraum (Sidebar) ----
 st.sidebar.header("Zeitraum")
-period_choice = st.sidebar.selectbox("Zeitraum", ["30 Tage", "90 Tage", "1 Jahr"], index=1)
-days_map = {"30 Tage": 30, "90 Tage": 90, "1 Jahr": 365}
+period_choice = st.sidebar.selectbox("Zeitraum", ["1d", "30d", "90d", "1Y"], index=1)
+days_map = {"1d": 1, "30d": 30, "90d": 90, "1Y": 365}
 end = date.today()
 start = end - timedelta(days=days_map[period_choice])
 
