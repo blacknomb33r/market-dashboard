@@ -380,7 +380,7 @@ for group_name, tickers in GROUPS.items():
         # Ladehinweis und Button (so laden wir nur, wenn geöffnet)
         load_clicked = st.button("Daten laden", key=f"load_{group_name}")
         if not load_clicked:
-            st.caption("Zum Laden klicken (schneller Start, besonders auf dem Handy).")
+            st.caption("Zum Laden klicken.")
             continue
 
         with st.spinner("Lade Daten..."):
