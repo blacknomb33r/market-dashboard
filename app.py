@@ -5,16 +5,16 @@ import pandas as pd
 import math
 
 st.set_page_config(page_title="Daily Market Dashboard", layout="wide")
-st.title("📊 Daily Market Dashboard (KPI only)")
+st.title("📊 Daily Market Dashboard")
 
 # ---- Zeitraum (Sidebar) ----
 st.sidebar.header("Zeitraum")
 period_choice = st.sidebar.selectbox(
     "Zeitraum",
-    ["Aktuell", "30 Tage", "90 Tage", "1 Jahr"],
+    ["Live", "30d", "90d", "1Y"],
     index=1
 )
-days_map = {"30 Tage": 30, "90 Tage": 90, "1 Jahr": 365}
+days_map = {"30d": 30, "90d": 90, "1Y": 365}
 end = date.today()
 start = end - timedelta(days=days_map.get(period_choice, 30))
 
@@ -114,7 +114,7 @@ for i, (name, meta) in enumerate(TICKERS.items()):
     yft = meta["ticker"]; kind = meta["fmt"]
 
     with cols[i % 3]:
-        if period_choice == "Aktuell":
+        if period_choice == "Live":
             # Aktueller Intraday-Wert + Δ vs. Vortagsschluss
             cur = fetch_intraday_last(yft)
             prev_close = fetch_prev_daily_close(yft)
@@ -158,4 +158,4 @@ for i, (name, meta) in enumerate(TICKERS.items()):
             else:
                 st.caption("Δ vs. 5d: –")
 
-st.caption("Hinweis: 'Aktuell' nutzt Intraday-Daten (i. d. R. ~15 Min. Verzögerung).")
+st.caption("Hinweis: 'Live' nutzt Intraday-Daten (i. d. R. ~15 Min. Verzögerung).")
