@@ -31,8 +31,9 @@ GROUPS = {
     "🇪🇺 Europa": {
         "DAX": {"ticker": "^GDAXI", "fmt": "idx"},
         "EuroStoxx50": {"ticker": "^STOXX50E", "fmt": "idx"},
-        "EUR/USD": {"ticker": "EURUSD=X", "fmt": "fx"},
+        "FTSE100": {"ticker": "^FTSE", "fmt": "idx"},
         "DE 10Y Yield": {"ticker": "FRED:DE10Y", "fmt": "pct_rate"},  # via FRED
+        "EUR/USD": {"ticker": "EURUSD=X", "fmt": "fx"},
     },
     "⛽ Rohstoffe": {
         "WTI Oil": {"ticker": "CL=F", "fmt": "px"},
@@ -46,7 +47,7 @@ GROUPS = {
     },
     "📉 Index": {
         "VIX": {"ticker": "^VIX", "fmt": "idx"},
-        "Put/Call Ratio": {"ticker": "^CPC", "fmt": "idx"},
+        "SKEW": {"ticker": "^SKEW", "fmt": "idx"},
     },
 }
 
