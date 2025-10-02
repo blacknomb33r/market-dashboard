@@ -43,6 +43,14 @@ GROUPS = {
 }
 
 # -------- Helpers --------
+def get_fear_greed_index():
+    try:
+        fg = fear_and_greed.get()
+        # fg.value = Zahl, fg.description = Text, fg.last_update
+        return fg.value, fg.description
+    except Exception:
+        return None, None
+    
 def fmt_value(x: float, kind: str) -> str:
     if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
         return "–"
@@ -174,10 +182,11 @@ for group_name, tickers in GROUPS.items():
 
 # Fear & Greed separat anzeigen
 st.subheader("Fear & Greed Index (CNN)")
-fg_val, fg_text = fetch_fear_greed()
+fg_val, fg_desc = get_fear_greed_index()
 if fg_val is not None:
-    st.metric(label="Fear & Greed", value=f"{fg_val} ({fg_text})", delta="–")
+    st.metric(label="Fear & Greed", value=f"{fg_val:.1f}", delta="–")
+    st.caption(f"{fg_desc}")
 else:
-    st.error("Fear & Greed Index konnte nicht geladen werden.")
+    st.error("Fehler bei F&G Laden")
 
 st.caption("Hinweis: 'Live' nutzt Intraday-Daten (~15 Min Verzögerung bei Yahoo).")
