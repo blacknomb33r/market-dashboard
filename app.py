@@ -6,6 +6,16 @@ import math
 import requests
 
 st.set_page_config(page_title="Daily Market Dashboard", layout="wide")
+# Einmal oben (z. B. direkt nach set_page_config):
+st.markdown("""
+<style>
+.hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 0.75rem 0 1rem 0; }
+</style>
+""", unsafe_allow_html=True)
+
+# Dann zwischen den Gruppen:
+if gi < len(GROUPS) - 1:
+    st.markdown("<hr class='hr'>", unsafe_allow_html=True)
 st.title("📊 Daily Market Dashboard (KPI only)")
 
 # ---- Zeitraum (Sidebar) ----
